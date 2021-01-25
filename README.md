@@ -92,7 +92,7 @@ According to the summary from Boosting its plot it is evident to see that the mo
 
 *Notice that the results from the from random forests and boosting are identical including the order.*
 
-#### (f) Compare the results from the various methods. Which method would you recommend?
+## (f) Compare the results from the various methods. Which method would you recommend?
 <p float="left">
   <img src="https://github.com/JaimeGoB/RandomForest_and_Boosting/blob/main/data/results.png">
 </p>
