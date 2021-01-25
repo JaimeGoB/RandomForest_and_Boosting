@@ -67,7 +67,7 @@ According to the Variable Importance plot it is evident to see that the most imp
 - Top10perc
 - Top25perc
 
-*Notice that the results from the from bagging are random forests are the same variable but in different order.*
+**Notice that the results from the from bagging are random forests are the same variable but in different order.**
 
 ## (e) Repeat (c) with a boosting approach with B = 1000, d = 1, and lambda = 0.01
 ## i) Use boosting approach with B = 1000, d = 1, and lambda = 0.01
@@ -90,7 +90,7 @@ According to the summary from Boosting its plot it is evident to see that the mo
 - Top10perc
 - Top25perc
 
-*Notice that the results from the from random forests and boosting are identical including the order.*
+**Notice that the results from the from random forests and boosting are identical including the order.**
 
 ## (f) Compare the results from the various methods. Which method would you recommend?
 <p float="left">
