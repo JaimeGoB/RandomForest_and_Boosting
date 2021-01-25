@@ -1,0 +1,171 @@
+---
+title: "RandomForest_&_Boosting"
+author: "JaimeGoB"
+date: "11/27/2020"
+output:
+  pdf_document: default
+  word_document: default
+  html_document: default
+---
+
+```{r include = FALSE}
+library(ISLR)
+library(dplyr) # mutate
+library(tree)
+library(rpart.plot)
+library(rpart)
+library(randomForest)
+library(caret)
+library(gbm) # Boosting
+
+```
+
+```{r, include=FALSE}
+#Reading in dataset
+college <- College %>% mutate_if(is.numeric,scale)
+y <- college$Apps
+```
+
+#### (a) Fit a tree to the data. i) Summarize the results. Unless the number of terminal nodes is large, ii)display the tree graphically and explicitly iii)describe the regions corresponding to the terminal nodes that provide a partition of the predictor space (i.e., provide expressions for the regions R1,...,RJ). iiii)Report its MSE.
+
+##### i) Decision Tree - Summary
+```{r, echo=FALSE, include=TRUE}
+college_tree <- tree(Apps ~ . , college)
+summary(college_tree)
+```
+
+##### ii) Visualizing Tree
+```{r, echo=FALSE, include=TRUE}
+# Visualize the decision tree with rpart.plot
+tree <- rpart(Apps ~., data=college)
+rpart.plot(tree)
+rpart.rules(tree)
+title(main = "Unpruned Decision Tree")
+```
+
+##### iii) Describe Regions
+
+##### iiii) Report MSE - Decision Tree
+```{r, include=TRUE, echo=FALSE}
+y_hat_tree = predict(college_tree, newdata = college)
+mse_tree <- round(mean((y_hat_tree - y)^2),4)
+mse_tree
+```
+#### (b) i) Use LOOCV to determine whether pruning is helpful and determine the optimal size for the pruned tree. ii)Compare the pruned and un-pruned trees. iii) Report MSE for the pruned tree. iiii) Which predictors seem to be the most important?
+
+##### i) Using LOOCV to Determine Optimal Size of Pruned Tree
+```{r,include=TRUE, echo=FALSE }
+#Getting number of observations to perform LOOCV
+n <- length(college$Apps)
+
+#LOOCV on decision tree
+cv_tree <- cv.tree(college_tree, FUN = prune.tree, K = n)
+#storing min size of tree where deviance is lowest
+min_size <- which.min(cv_tree$size)
+min_dev <- which.min(cv_tree$dev)
+
+# Plotting the tree on the best size
+plot(cv_tree, type = "b")
+points(min_size, cv_tree$dev[min_dev], col = "red", cex = 2, pch = 20)
+legend("topright",
+      legend=c("Best Size of Tree"),
+      col = "red", cex = 1, pch = 20)
+```
+
+##### ii)Compare the pruned and un-pruned trees.
+```{r, echo=FALSE, include=TRUE}
+pruned_college_tree <- prune.tree(college_tree, best = 4)
+pruned_tree <- rpart(pruned_college_tree, data=college)
+rpart.plot(tree)
+rpart.rules(tree)
+title(main = "Pruned Decision Tree - Size 4")
+```
+
+##### iii) Report MSE for the pruned tree.
+```{r, include=TRUE, echo=FALSE}
+y_hat_pruned_tree = predict(pruned_college_tree, newdata = college)
+mse_pruned_tree <- round(mean((y_hat_pruned_tree - y)^2),4)
+mse_pruned_tree
+```
+
+##### iiii) Which predictors seem to be the most important?
+
+
+#### (c) i) Use a bagging approach to analyze the data with B = 1000. ii) Compute the MSE. iii) Which predictors seem to be the most important?
+
+##### i) Use a bagging approach to analyze the data with B = 1000
+```{r, include=FALSE, echo=FALSE}
+# Storing # of predictors will be used for bagging and rf.
+p <- length(college) - 1
+set.seed(1)
+bagging_college <- randomForest(Apps ~ ., data = college, mtry = p, ntree = 1000, importance = TRUE)
+```
+
+##### ii) Compute the MSE
+```{r, include=TRUE, echo=FALSE}
+y_hat_bag <- predict(bagging_college, newdata = college)
+mse_bag <- round(mean((y_hat_bag - y)^2),4)
+mse_bag
+```
+##### iii) Which predictors seem to be the most important?
+```{r, include=TRUE, echo=FALSE}
+importance(bagging_college)
+# The plot contains average increase in MSE en variable values that 
+# are permutated(shuffled) on OOB. Higher increase in MSE = more importance.
+varImpPlot(bagging_college, main = "Bagging - College Dataset")
+```
+
+
+#### (d) Repeat (c) with a random forest approach with B = 1000 and m = p/3
+
+##### i) Use random forest approach with B = 1000 and m = p/3
+```{r, include=FALSE, echo=FALSE}
+random_forest_college <- randomForest(Apps ~ ., data = college, mtry = p / 3, ntree = 1000, importance = TRUE)
+```
+
+##### ii) Compute the MSE
+```{r, include=TRUE, echo=FALSE}
+y_hat_random_forest <- predict(random_forest_college, newdata = college)
+mse_rf <- round(mean((y_hat_random_forest  - y)^2),4)
+mse_rf
+```
+
+##### iii) Which predictors seem to be the most important?
+```{r, include=TRUE, echo=FALSE}
+importance(random_forest_college)
+# The plot contains average increase in MSE en variable values that
+# are permutated(shuffled) on OOB. Higher increase in MSE = more importance.
+varImpPlot(random_forest_college, main = "Random Forest - College Dataset")
+```
+
+#### (e) Repeat (c) with a boosting approach with B = 1000, d = 1, and lambda = 0.01
+
+##### i) Use boosting approach with B = 1000, d = 1, and lambda = 0.01
+```{r, include=FALSE, echo=FALSE}
+set.seed(1)
+#Defualt interaction.depth = 1 (d = 1)
+boosting_college <- gbm(Apps ~ . , 
+                        data = college, 
+                        distribution = "gaussian",
+                        n.trees = 1000,
+                        shrinkage = 0.01 )
+```
+
+##### ii) Compute the MSE
+```{r, include=TRUE, echo=FALSE , message=FALSE}
+y_hat_boosting_college <- predict(boosting_college, newdata = college)
+mse_boosting <- round(mean((y_hat_boosting_college  - y)^2),4)
+mse_boosting
+```
+##### iii) Which predictors seem to be the most important?
+```{r, include=TRUE, echo=FALSE}
+summary.gbm(boosting_college)
+```
+
+#### (f) Compare the results from the various methods. Which method would you recommend?
+
+```{r, include=TRUE, echo=FALSE}
+mse <- cbind(mse_tree, mse_pruned_tree, mse_bag, mse_rf, mse_boosting)
+mse
+```
+

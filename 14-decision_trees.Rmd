@@ -1,0 +1,367 @@
+
+---
+title: "Decision Trees and Bagging, Random Forest, and Boosting"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+<!-- # Illustration of deicision trees -->
+<!-- # We will use the tree package -->
+
+<!-- ################################################################### -->
+<!-- # Fitting a classification tree -->
+<!-- ################################################################### -->
+
+
+```{r, include=FALSE}
+library(tree)
+```
+
+```{r, include=FALSE}
+library(ISLR)
+?Carseats
+```
+
+<!-- # Create a binary response  -->
+
+```{r, include=FALSE}
+High <- ifelse(Carseats$Sales <= 8, "No", "Yes")
+Carseats <- data.frame(Carseats, High)
+```
+
+<!-- # Grow a tree -->
+
+```{r, include=FALSE}
+tree.carseats <- tree(High ~ . - Sales, Carseats)
+```
+
+<!-- # See the default output -->
+
+```{r, include=FALSE}
+tree.carseats
+```
+
+<!-- # See a summary of results -->
+
+```{r, include=FALSE}
+summary(tree.carseats)
+```
+
+<!-- # Note: Read p. 325 to see the meaning --> 
+<!-- of Residual Mean Deviance. It's -->  
+<!-- slightly different from ours -->
+
+
+<!-- # Plot the tree -->
+
+```{r}
+plot(tree.carseats)
+text(tree.carseats, pretty = 0, cex = 0.7)
+```
+
+<!-- # Estimate test error rate using validation set approach -->
+
+<!-- # Create training and test sets -->
+
+```{r, include=FALSE}
+set.seed(2)
+train <- sample(1:nrow(Carseats), 200)
+Carseats.test <- Carseats[-train, ]
+High.test <- High[-train]
+```
+
+<!-- # Grow a tree using the training set -->
+
+```{r, include=FALSE}
+tree.carseats <- tree(High ~ . - Sales, Carseats, subset = train)
+```
+
+<!-- # Get predictions on the test set -->
+
+```{r, include=FALSE}
+tree.pred <- predict(tree.carseats, Carseats.test, type = "class")
+```
+
+<!-- # Compute the confusion matrix -->
+
+```{r, include=FALSE}
+table(tree.pred, High.test)
+```
+
+<!-- # Compute the test misclassification rate -->
+
+```{r, include=FALSE}
+(27 + 30)/200
+```
+
+<!-- # Perform cost complexity pruning by CV, guided by misclassification rate -->
+
+```{r, include=FALSE}
+set.seed(3)
+cv.carseats <- cv.tree(tree.carseats, FUN = prune.misclass)
+cv.carseats
+```
+
+<!-- # Note: k = alpha, dev = CV error rate -->
+
+<!-- # Look at what is stored in the result object -->
+
+```{r, include=FALSE}
+names(cv.carseats)
+```
+
+<!-- # Plot the estimated test error rate -->
+
+```{r}
+par(mfrow = c(1, 2))
+plot(cv.carseats$size, cv.carseats$dev, type = "b")
+plot(cv.carseats$k, cv.carseats$dev, type = "b")
+```
+
+<!-- # Get the best size -->
+
+```{r, include=FALSE}
+cv.carseats$size[which.min(cv.carseats$dev)]
+```
+
+<!-- # Get the pruned tree of the best size -->
+
+```{r, include=FALSE}
+prune.carseats <- prune.misclass(tree.carseats, best = 9)
+```
+
+<!-- # Plot the pruned tree -->
+
+```{r}
+plot(prune.carseats)
+text(prune.carseats, pretty = 0)
+```
+
+<!-- # Get predictions on the test set -->
+
+```{r, include=FALSE}
+tree.pred <- predict(prune.carseats, Carseats.test, type = "class")
+```
+
+<!-- # Get the confusion matrix  -->
+
+```{r, include=FALSE}
+table(tree.pred, High.test)
+```
+
+<!-- # Compute the missclassification rate of the best pruned tree -->
+
+```{r, include=FALSE}
+(24 + 22)/200
+```
+
+<!-- # Compute the missclassification rate of a larger pruned tree -->
+
+```{r, include=FALSE}
+prune.carseats <- prune.misclass(tree.carseats, best = 15)
+tree.pred <- predict(prune.carseats, Carseats.test, type = "class")
+table(tree.pred, High.test)
+```
+
+```{r, include=FALSE}
+(22 + 32)/200
+```
+
+<!-- ################################################################### -->
+<!-- # Fitting a regression tree -->
+<!-- ################################################################### -->
+
+
+```{r, include=FALSE}
+library(MASS)
+?Boston
+str(Boston)
+```
+
+<!-- # Create training and test sets -->
+
+```{r, include=FALSE}
+set.seed(1)
+train <- sample(1:nrow(Boston), nrow(Boston)/2)
+```
+
+<!-- # Grow a tree using the training set -->
+
+```{r, include=FALSE}
+tree.boston <- tree(medv ~ ., Boston, subset = train)
+summary(tree.boston)
+```
+
+<!-- # Plot the tree -->
+
+```{r}
+plot(tree.boston)
+text(tree.boston, pretty = 0)
+```
+
+<!-- # Perform cost complexity pruning by CV -->
+
+```{r, include=FALSE}
+cv.boston <- cv.tree(tree.boston)
+cv.boston
+which.min(cv.boston$size)
+```
+
+<!-- # Plot the estimated test error rate -->
+
+```{r}
+plot(cv.boston$size, cv.boston$dev, type = "b")
+```
+
+<!-- # Note: Best size = 8 (i.e., no pruning) -->
+
+<!-- # If needed, pruning can be performed by specifying the "best" argument -->
+
+```{r}
+prune.boston <- prune.tree(tree.boston, best = 5)
+plot(prune.boston)
+text(prune.boston, pretty = 0)
+```
+
+<!-- # Get predictions on the test data -->
+
+```{r, include=FALSE}
+yhat <- predict(tree.boston, newdata = Boston[-train, ])
+boston.test <- Boston[-train, "medv"]
+```
+
+<!-- # Plot the observed values against the predicted values -->
+
+```{r}
+plot(yhat, boston.test)
+abline(0, 1)
+```
+
+<!-- # Compute the test error rate  -->
+
+```{r, include=FALSE}
+mean((yhat - boston.test)^2)
+```
+
+<!-- ################################################################### -->
+<!-- # Bagging and random forest #  -->
+<!-- ################################################################### -->
+
+<!-- # Illustration using randomForest package and Boston data -->
+
+```{r, include=FALSE}
+library(randomForest)
+```
+
+<!-- # Perform bagging (i.e., random forest with m = p = 13) -->
+
+```{r, include=FALSE}
+set.seed(1)
+bag.boston <- randomForest(medv ~ ., data = Boston, subset = train, 
+	mtry = 13, ntree = 500, importance = TRUE)
+bag.boston
+```
+
+<!-- # Estimate test error rate -->
+
+```{r, include=FALSE}
+yhat.bag <- predict(bag.boston, newdata = Boston[-train, ])
+mean((yhat.bag - boston.test)^2)
+```
+
+<!-- # Compare observed and fitted values -->
+
+```{r}
+plot(yhat.bag, boston.test)
+abline(0, 1)
+```
+
+<!-- # Grow a random forest  -->
+<!-- # (Default m = p/3 for regression and sqrt(p) for classification) -->
+
+```{r, include=FALSE}
+set.seed(1)
+rf.boston <- randomForest(medv ~ ., data = Boston, subset = train, 
+	mtry = 6, ntree = 500, importance = TRUE)
+```
+
+<!-- # Estimate test error rate -->
+
+```{r, include=FALSE}
+yhat.rf = predict(rf.boston, newdata = Boston[-train, ])
+mean((yhat.rf - boston.test)^2)
+```
+
+<!-- # Get variable importance measure for each predictor -->
+
+```{r, include=FALSE}
+importance(rf.boston)
+```
+
+<!-- # Be sure to look at ?importance -->
+<!-- # Note: 1 = mean decrease in accuracy, 2 = mean decrease in node impurity (RSS) -->
+
+```{r}
+varImpPlot(rf.boston)
+```
+
+
+
+<!-- ################################################################### -->
+<!-- # Boosting #  -->
+<!-- ################################################################### -->
+
+<!-- # Illustration using gbm package and Boston data -->
+
+```{r, include=FALSE}
+library(gbm)
+```
+
+<!-- # Fit a boosted regression tree -->
+
+```{r, include=FALSE}
+set.seed(1)
+boost.boston <- gbm(medv ~ ., data = Boston[train, ], distribution = "gaussian", 
+	n.trees = 5000, interaction.depth = 4)
+```
+
+<!-- # Get the relative influence plot -->
+
+```{r}
+summary(boost.boston)
+```
+
+<!-- # Get the partial dependence plot of selected variables on response -->
+
+```{r}
+par(mfrow = c(1, 2))
+plot(boost.boston, i = "rm")
+plot(boost.boston, i = "lstat")
+```
+
+<!-- # Estimate test error rate for the boosted model -->
+
+```{r, include=FALSE}
+yhat.boost <- predict(boost.boston, newdata = Boston[-train, ], 
+	n.trees = 5000)
+mean((yhat.boost - boston.test)^2)
+```
+
+<!-- # Perform boosting with a different value of lambda -->
+
+```{r, include=FALSE}
+boost.boston <- gbm(medv ~ ., data = Boston[train, ], distribution = "gaussian", 
+	n.trees = 5000, interaction.depth = 4, shrinkage = 0.2, verbose = F)
+yhat.boost <- predict(boost.boston, newdata = Boston[-train, ], 
+	n.trees = 5000)
+mean((yhat.boost - boston.test)^2)
+```
+
+
+<!-- ################################################################### -->
+
+
+
